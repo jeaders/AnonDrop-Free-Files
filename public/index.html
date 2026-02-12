@@ -3,66 +3,136 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AnonDrop - Secure File Sharing</title>
     <link rel="stylesheet" href="/style.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <!-- Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
     <div class="container">
-        <h1>AnonDrop R2</h1>
-        <p>Securely share large files.</p>
-        <input type="file" id="fileInput">
-        <button id="uploadButton" disabled>Upload File</button>
-        <div class="progress-container">
-            <div id="uploadProgress">0%</div>
+        <h1>AnonDrop</h1>
+        <p>Condivisione file sicura e veloce.</p>
+        
+        <div class="drop-zone" id="dropZone">
+            <i class="fas fa-cloud-upload-alt"></i>
+            <div id="dropZoneText">Trascina qui il file o clicca per selezionare</div>
+            <div class="file-info-display" id="fileInfoDisplay"></div>
+            <input type="file" id="fileInput">
         </div>
-        <div id="shareLinkContainer" style="display: none;">
-            <p>Your shareable link:</p>
-            <a id="shareLink" href="#" target="_blank"></a>
+
+        <button id="uploadButton" disabled>Carica File</button>
+
+        <div class="progress-container" id="progressContainer">
+            <div id="uploadProgress"></div>
         </div>
-        <p id="errorMessage" class="error-message" style="display: none;"></p>
+        <div class="progress-text" id="progressText">0%</div>
+
+        <div id="shareLinkContainer">
+            <p style="margin-bottom: 10px; color: #fff; font-size: 0.9rem;">Il tuo link è pronto:</p>
+            <div class="link-wrapper">
+                <a id="shareLink" href="#" target="_blank"></a>
+                <button class="copy-btn" id="copyButton" title="Copia Link">
+                    <i class="far fa-copy"></i>
+                </button>
+            </div>
+        </div>
+
+        <p id="errorMessage" class="error-message"></p>
     </div>
 
     <script>
         const fileInput = document.getElementById('fileInput');
+        const dropZone = document.getElementById('dropZone');
+        const dropZoneText = document.getElementById('dropZoneText');
+        const fileInfoDisplay = document.getElementById('fileInfoDisplay');
         const uploadButton = document.getElementById('uploadButton');
         const uploadProgress = document.getElementById('uploadProgress');
-        const progressContainer = document.querySelector('.progress-container');
+        const progressContainer = document.getElementById('progressContainer');
+        const progressText = document.getElementById('progressText');
         const shareLinkContainer = document.getElementById('shareLinkContainer');
         const shareLink = document.getElementById('shareLink');
+        const copyButton = document.getElementById('copyButton');
         const errorMessage = document.getElementById('errorMessage');
 
         let selectedFile = null;
 
+        // Trigger file input on click
+        dropZone.addEventListener('click', () => fileInput.click());
+
+        // Handle file selection
         fileInput.addEventListener('change', (event) => {
-            selectedFile = event.target.files[0];
-            if (selectedFile) {
+            handleFiles(event.target.files[0]);
+        });
+
+        // Drag and Drop events
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('drag-over');
+        });
+
+        ['dragleave', 'dragend'].forEach(type => {
+            dropZone.addEventListener(type, () => {
+                dropZone.classList.remove('drag-over');
+            });
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('drag-over');
+            handleFiles(e.dataTransfer.files[0]);
+        });
+
+        function handleFiles(file) {
+            if (file) {
+                selectedFile = file;
+                dropZoneText.style.display = 'none';
+                fileInfoDisplay.textContent = `${file.name} (${formatBytes(file.size)})`;
+                fileInfoDisplay.style.display = 'block';
                 uploadButton.disabled = false;
                 errorMessage.style.display = 'none';
-            } else {
-                uploadButton.disabled = true;
             }
+        }
+
+        function formatBytes(bytes, decimals = 2) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const dm = decimals < 0 ? 0 : decimals;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+        }
+
+        // Copy to clipboard
+        copyButton.addEventListener('click', () => {
+            const textToCopy = shareLink.href;
+            navigator.clipboard.writeText(textToCopy).then(() => {
+                const icon = copyButton.querySelector('i');
+                icon.classList.replace('far', 'fas');
+                icon.classList.replace('fa-copy', 'fa-check');
+                setTimeout(() => {
+                    icon.classList.replace('fas', 'far');
+                    icon.classList.replace('fa-check', 'fa-copy');
+                }, 2000);
+            });
         });
 
         uploadButton.addEventListener('click', async () => {
-            if (!selectedFile) {
-                errorMessage.textContent = 'Please select a file to upload.';
-                errorMessage.style.display = 'block';
-                return;
-            }
+            if (!selectedFile) return;
 
             uploadButton.disabled = true;
             progressContainer.style.display = 'block';
+            progressText.style.display = 'block';
             uploadProgress.style.width = '0%';
-            uploadProgress.textContent = '0%';
+            progressText.textContent = '0%';
             shareLinkContainer.style.display = 'none';
             errorMessage.style.display = 'none';
 
             try {
-                // 1. Get presigned URL from backend
                 const response = await fetch('/.netlify/functions/presigned-upload-url', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         fileName: selectedFile.name,
                         contentType: selectedFile.type,
@@ -77,7 +147,6 @@
 
                 const { presignedUrl, fileId } = await response.json();
 
-                // 2. Upload file directly to R2 using the presigned URL
                 const xhr = new XMLHttpRequest();
                 xhr.open('PUT', presignedUrl);
                 xhr.setRequestHeader('Content-Type', selectedFile.type);
@@ -86,38 +155,35 @@
                     if (event.lengthComputable) {
                         const percent = (event.loaded / event.total) * 100;
                         uploadProgress.style.width = `${percent.toFixed(0)}%`;
-                        uploadProgress.textContent = `${percent.toFixed(0)}%`;
+                        progressText.textContent = `${percent.toFixed(0)}%`;
                     }
                 });
 
                 xhr.addEventListener('load', () => {
                     if (xhr.status >= 200 && xhr.status < 300) {
-                        // Upload successful, display shareable link
                         const fullShareLink = `${window.location.origin}/download/${fileId}`;
                         shareLink.href = fullShareLink;
                         shareLink.textContent = fullShareLink;
                         shareLinkContainer.style.display = 'block';
                         uploadButton.disabled = false;
-                        fileInput.value = ''; // Clear file input
+                        fileInput.value = '';
                         selectedFile = null;
+                        dropZoneText.style.display = 'block';
+                        fileInfoDisplay.style.display = 'none';
                     } else {
-                        errorMessage.textContent = `Upload failed: ${xhr.statusText || 'Unknown error'}`;
-                        errorMessage.style.display = 'block';
-                        uploadButton.disabled = false;
+                        throw new Error(`Upload failed: ${xhr.statusText}`);
                     }
                 });
 
                 xhr.addEventListener('error', () => {
-                    errorMessage.textContent = 'Network error during upload.';
-                    errorMessage.style.display = 'block';
-                    uploadButton.disabled = false;
+                    throw new Error('Network error during upload.');
                 });
 
                 xhr.send(selectedFile);
 
             } catch (error) {
                 console.error('Upload process error:', error);
-                errorMessage.textContent = `Error: ${error.message}`;
+                errorMessage.textContent = error.message;
                 errorMessage.style.display = 'block';
                 uploadButton.disabled = false;
             }

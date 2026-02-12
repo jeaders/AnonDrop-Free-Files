@@ -3,17 +3,37 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AnonDrop - Scarica File</title>
     <link rel="stylesheet" href="/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
     <div class="container">
-        <h1>AnonDrop R2 - Download</h1>
-        <div id="fileInfo">
-            <p>File Name: <strong id="fileName">Loading...</strong></p>
-            <p>File Size: <strong id="fileSize">Loading...</strong></p>
-            <button id="downloadButton" disabled>Download File</button>
+        <h1>Scarica File</h1>
+        <p>Il tuo file è pronto per essere scaricato.</p>
+        
+        <div id="fileInfo" class="drop-zone" style="border-style: solid; cursor: default;">
+            <i class="fas fa-file-download" style="font-size: 48px; margin-bottom: 20px;"></i>
+            <div style="margin-bottom: 10px;">
+                <span style="color: #888; font-size: 0.9rem;">Nome file:</span><br>
+                <strong id="fileName" style="font-size: 1.1rem; color: #fff;">Caricamento...</strong>
+            </div>
+            <div>
+                <span style="color: #888; font-size: 0.9rem;">Dimensione:</span><br>
+                <strong id="fileSize" style="font-size: 1.1rem; color: #fff;">Caricamento...</strong>
+            </div>
         </div>
-        <p id="errorMessage" class="error-message" style="display: none;"></p>
+
+        <button id="downloadButton" disabled>Scarica Ora</button>
+        
+        <p id="errorMessage" class="error-message"></p>
+
+        <div style="margin-top: 30px;">
+            <a href="/" style="color: var(--primary-color); text-decoration: none; font-size: 0.9rem;">
+                <i class="fas fa-arrow-left"></i> Invia un altro file
+            </a>
+        </div>
     </div>
 
     <script>
@@ -26,13 +46,13 @@
         const fileId = pathParts[pathParts.length - 1];
 
         if (!fileId) {
-            errorMessageElement.textContent = 'Invalid download link.';
+            errorMessageElement.textContent = 'Link di download non valido.';
             errorMessageElement.style.display = 'block';
         } else {
             fetch(`/.netlify/functions/download-info/${fileId}`)
                 .then(response => {
                     if (!response.ok) {
-                        return response.json().then(err => { throw new Error(err.error || 'Failed to get download link'); });
+                        return response.json().then(err => { throw new Error(err.error || 'File non trovato o scaduto'); });
                     }
                     return response.json();
                 })
@@ -46,7 +66,7 @@
                 })
                 .catch(error => {
                     console.error('Error fetching download info:', error);
-                    errorMessageElement.textContent = `Error: ${error.message}`;
+                    errorMessageElement.textContent = `Errore: ${error.message}`;
                     errorMessageElement.style.display = 'block';
                     fileNameElement.textContent = 'N/A';
                     fileSizeElement.textContent = 'N/A';
@@ -57,7 +77,7 @@
             if (bytes === 0) return '0 Bytes';
             const k = 1024;
             const dm = decimals < 0 ? 0 : decimals;
-            const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+            const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
             const i = Math.floor(Math.log(bytes) / Math.log(k));
             return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
         }
