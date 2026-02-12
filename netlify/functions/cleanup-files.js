@@ -1,7 +1,6 @@
-require('dotenv').config(); // Per caricare le variabili d'ambiente localmente
-
-const { S3Client, DeleteObjectCommand } = require('@aws-sdk/client-s3');
-const axios = require('axios');
+import 'dotenv/config';
+import { S3Client, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import axios from 'axios';
 
 // Cloudflare Workers KV Configuration
 const CLOUDFLARE_ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID;
@@ -105,7 +104,7 @@ const s3Client = new S3Client({
     },
 });
 
-exports.handler = async (event, context) => {
+export const handler = async (event, context) => {
     if (event.httpMethod !== 'POST') {
         return {
             statusCode: 405,
