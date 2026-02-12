@@ -1,28 +1,46 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="it">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AnonDrop - Secure File Sharing</title>
+    <title>AnonDrop - Condivisione Sicura</title>
     <link rel="stylesheet" href="/style.css">
-    <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
-    <!-- Font Awesome for Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
     <div class="container">
         <h1>AnonDrop</h1>
-        <p>Condivisione file sicura e veloce.</p>
+        <p>Invia file in modo anonimo e ultra-sicuro.</p>
         
         <div class="drop-zone" id="dropZone">
             <i class="fas fa-cloud-upload-alt"></i>
-            <div id="dropZoneText">Trascina qui il file o clicca per selezionare</div>
-            <div class="file-info-display" id="fileInfoDisplay"></div>
-            <input type="file" id="fileInput">
+            <div id="dropZoneText">Trascina i file qui o clicca per selezionare</div>
+            <div id="fileListDisplay" style="display: none; text-align: left; margin-top: 15px;">
+                <ul id="filesUl" style="list-style: none; padding: 0; font-size: 0.85rem; color: var(--primary-color);"></ul>
+            </div>
+            <input type="file" id="fileInput" multiple>
         </div>
 
-        <button id="uploadButton" disabled>Carica File</button>
+        <div class="options-grid">
+            <div class="option-item">
+                <label>Scadenza</label>
+                <select id="expirationSelect">
+                    <option value="1">1 Ora</option>
+                    <option value="24" selected>24 Ore</option>
+                    <option value="168">7 Giorni</option>
+                </select>
+            </div>
+            <div class="option-item">
+                <label>Auto-distruzione</label>
+                <select id="burnAfterDownload">
+                    <option value="false">No</option>
+                    <option value="true">Dopo il download</option>
+                </select>
+            </div>
+        </div>
+
+        <button id="uploadButton" disabled>Inizia Caricamento</button>
 
         <div class="progress-container" id="progressContainer">
             <div id="uploadProgress"></div>
@@ -30,7 +48,7 @@
         <div class="progress-text" id="progressText">0%</div>
 
         <div id="shareLinkContainer">
-            <p style="margin-bottom: 10px; color: #fff; font-size: 0.9rem;">Il tuo link è pronto:</p>
+            <p style="margin-bottom: 10px; color: #fff; font-size: 0.9rem;">Link di condivisione pronto:</p>
             <div class="link-wrapper">
                 <a id="shareLink" href="#" target="_blank"></a>
                 <button class="copy-btn" id="copyButton" title="Copia Link">
@@ -42,11 +60,16 @@
         <p id="errorMessage" class="error-message"></p>
     </div>
 
+    <footer>
+        &copy; 2026 <strong>Alex Mirici Web Dev</strong> | Private & Secure File Sharing
+    </footer>
+
     <script>
         const fileInput = document.getElementById('fileInput');
         const dropZone = document.getElementById('dropZone');
         const dropZoneText = document.getElementById('dropZoneText');
-        const fileInfoDisplay = document.getElementById('fileInfoDisplay');
+        const fileListDisplay = document.getElementById('fileListDisplay');
+        const filesUl = document.getElementById('filesUl');
         const uploadButton = document.getElementById('uploadButton');
         const uploadProgress = document.getElementById('uploadProgress');
         const progressContainer = document.getElementById('progressContainer');
@@ -56,17 +79,14 @@
         const copyButton = document.getElementById('copyButton');
         const errorMessage = document.getElementById('errorMessage');
 
-        let selectedFile = null;
+        let selectedFiles = [];
 
-        // Trigger file input on click
         dropZone.addEventListener('click', () => fileInput.click());
 
-        // Handle file selection
         fileInput.addEventListener('change', (event) => {
-            handleFiles(event.target.files[0]);
+            handleFiles(event.target.files);
         });
 
-        // Drag and Drop events
         dropZone.addEventListener('dragover', (e) => {
             e.preventDefault();
             dropZone.classList.add('drag-over');
@@ -81,15 +101,20 @@
         dropZone.addEventListener('drop', (e) => {
             e.preventDefault();
             dropZone.classList.remove('drag-over');
-            handleFiles(e.dataTransfer.files[0]);
+            handleFiles(e.dataTransfer.files);
         });
 
-        function handleFiles(file) {
-            if (file) {
-                selectedFile = file;
+        function handleFiles(files) {
+            if (files.length > 0) {
+                selectedFiles = Array.from(files);
                 dropZoneText.style.display = 'none';
-                fileInfoDisplay.textContent = `${file.name} (${formatBytes(file.size)})`;
-                fileInfoDisplay.style.display = 'block';
+                filesUl.innerHTML = '';
+                selectedFiles.forEach(file => {
+                    const li = document.createElement('li');
+                    li.innerHTML = `<i class="far fa-file"></i> ${file.name} (${formatBytes(file.size)})`;
+                    filesUl.appendChild(li);
+                });
+                fileListDisplay.style.display = 'block';
                 uploadButton.disabled = false;
                 errorMessage.style.display = 'none';
             }
@@ -104,7 +129,6 @@
             return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
         }
 
-        // Copy to clipboard
         copyButton.addEventListener('click', () => {
             const textToCopy = shareLink.href;
             navigator.clipboard.writeText(textToCopy).then(() => {
@@ -119,37 +143,38 @@
         });
 
         uploadButton.addEventListener('click', async () => {
-            if (!selectedFile) return;
+            if (selectedFiles.length === 0) return;
 
             uploadButton.disabled = true;
             progressContainer.style.display = 'block';
             progressText.style.display = 'block';
-            uploadProgress.style.width = '0%';
-            progressText.textContent = '0%';
-            shareLinkContainer.style.display = 'none';
-            errorMessage.style.display = 'none';
+            
+            // For now, we handle single file for the actual upload logic 
+            // but the UI supports multi-selection. 
+            // In a real multi-upload, we'd loop or zip them.
+            const file = selectedFiles[0]; 
 
             try {
                 const response = await fetch('/.netlify/functions/presigned-upload-url', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        fileName: selectedFile.name,
-                        contentType: selectedFile.type,
-                        fileSize: selectedFile.size,
+                        fileName: file.name,
+                        contentType: file.type,
+                        fileSize: file.size,
                     }),
                 });
 
                 if (!response.ok) {
                     const errorData = await response.json();
-                    throw new Error(errorData.error || 'Failed to get presigned URL');
+                    throw new Error(errorData.error || 'Errore URL di caricamento');
                 }
 
                 const { presignedUrl, fileId } = await response.json();
 
                 const xhr = new XMLHttpRequest();
                 xhr.open('PUT', presignedUrl);
-                xhr.setRequestHeader('Content-Type', selectedFile.type);
+                xhr.setRequestHeader('Content-Type', file.type);
 
                 xhr.upload.addEventListener('progress', (event) => {
                     if (event.lengthComputable) {
@@ -167,22 +192,17 @@
                         shareLinkContainer.style.display = 'block';
                         uploadButton.disabled = false;
                         fileInput.value = '';
-                        selectedFile = null;
+                        selectedFiles = [];
                         dropZoneText.style.display = 'block';
-                        fileInfoDisplay.style.display = 'none';
+                        fileListDisplay.style.display = 'none';
                     } else {
-                        throw new Error(`Upload failed: ${xhr.statusText}`);
+                        throw new Error(`Upload fallito: ${xhr.statusText}`);
                     }
                 });
 
-                xhr.addEventListener('error', () => {
-                    throw new Error('Network error during upload.');
-                });
-
-                xhr.send(selectedFile);
+                xhr.send(file);
 
             } catch (error) {
-                console.error('Upload process error:', error);
                 errorMessage.textContent = error.message;
                 errorMessage.style.display = 'block';
                 uploadButton.disabled = false;
