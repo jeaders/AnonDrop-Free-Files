@@ -1,0 +1,98 @@
+body {
+    font-family: 'Courier New', Courier, monospace;
+    background-color: #1a1a1a;
+    color: #00ff00;
+    margin: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    flex-direction: column;
+}
+.container {
+    background-color: #000000;
+    border: 2px solid #00ff00;
+    padding: 30px;
+    border-radius: 10px;
+    box-shadow: 0 0 15px rgba(0, 255, 0, 0.7);
+    text-align: center;
+}
+h1 {
+    color: #00ff00;
+    text-shadow: 0 0 5px rgba(0, 255, 0, 0.7);
+}
+p {
+    margin: 10px 0;
+}
+strong {
+    color: #00ffff;
+}
+input[type="file"] {
+    background-color: #333;
+    color: #00ff00;
+    border: 1px solid #00ff00;
+    padding: 10px;
+    border-radius: 5px;
+    cursor: pointer;
+    margin-top: 20px;
+}
+input[type="file"]::file-selector-button {
+    background-color: #00ff00;
+    color: #000000;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 3px;
+    cursor: pointer;
+    margin-right: 10px;
+}
+input[type="file"]::file-selector-button:hover {
+    background-color: #00cc00;
+}
+button {
+    background-color: #00ff00;
+    color: #000000;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+    margin-top: 20px;
+}
+button:hover {
+    background-color: #00cc00;
+}
+#uploadProgress {
+    width: 0%;
+    height: 20px;
+    background-color: #00ff00;
+    margin-top: 20px;
+    border-radius: 5px;
+    text-align: center;
+    line-height: 20px;
+    color: #000000;
+    font-weight: bold;
+    transition: width 0.3s ease-in-out;
+}
+.progress-container {
+    width: 100%;
+    background-color: #333;
+    border: 1px solid #00ff00;
+    border-radius: 5px;
+    margin-top: 20px;
+    display: none; /* Hidden by default */
+}
+#shareLinkContainer {
+    margin-top: 20px;
+    word-break: break-all;
+}
+#shareLink {
+    color: #00ffff;
+    text-decoration: none;
+}
+#shareLink:hover {
+    text-decoration: underline;
+}
+.error-message {
+    color: #ff0000;
+    margin-top: 10px;
+}

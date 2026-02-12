@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>AnonDrop R2 - Download</h1>
+        <div id="fileInfo">
+            <p>File Name: <strong id="fileName">Loading...</strong></p>
+            <p>File Size: <strong id="fileSize">Loading...</strong></p>
+            <button id="downloadButton" disabled>Download File</button>
+        </div>
+        <p id="errorMessage" class="error-message" style="display: none;"></p>
+    </div>
+
+    <script>
+        const fileNameElement = document.getElementById('fileName');
+        const fileSizeElement = document.getElementById('fileSize');
+        const downloadButton = document.getElementById('downloadButton');
+        const errorMessageElement = document.getElementById('errorMessage');
+
+        const pathParts = window.location.pathname.split('/');
+        const fileId = pathParts[pathParts.length - 1];
+
+        if (!fileId) {
+            errorMessageElement.textContent = 'Invalid download link.';
+            errorMessageElement.style.display = 'block';
+        } else {
+            fetch(`/api/download-info/${fileId}`)
+                .then(response => {
+                    if (!response.ok) {
+                        return response.json().then(err => { throw new Error(err.error || 'Failed to get download link'); });
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    fileNameElement.textContent = data.fileName;
+                    fileSizeElement.textContent = formatBytes(data.fileSize);
+                    downloadButton.disabled = false;
+                    downloadButton.addEventListener('click', () => {
+                        window.location.href = data.downloadUrl;
+                    });
+                })
+                .catch(error => {
+                    console.error('Error fetching download info:', error);
+                    errorMessageElement.textContent = `Error: ${error.message}`;
+                    errorMessageElement.style.display = 'block';
+                    fileNameElement.textContent = 'N/A';
+                    fileSizeElement.textContent = 'N/A';
+                });
+        }
+
+        function formatBytes(bytes, decimals = 2) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const dm = decimals < 0 ? 0 : decimals;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+        }
+    </script>
+</body>
+</html>
