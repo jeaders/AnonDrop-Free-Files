@@ -1,17 +1,7 @@
-require('dotenv').config();
+require('dotenv').config(); // Per caricare le variabili d'ambiente localmente
 
-console.log('CLOUDFLARE_ACCOUNT_ID:', process.env.CLOUDFLARE_ACCOUNT_ID);
-console.log('CLOUDFLARE_API_TOKEN:', process.env.CLOUDFLARE_API_TOKEN ? '********' : 'NOT SET'); // Mask token for security
-console.log('CLOUDFLARE_KV_NAMESPACE_ID:', process.env.CLOUDFLARE_KV_NAMESPACE_ID);
-
-const express = require('express');
-const { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
-const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
-const { v4: uuidv4 } = require('uuid');
-const axios = require('axios'); // Import axios
-
-const app = express();
-const port = 3000;
+const { S3Client, DeleteObjectCommand } = require('@aws-sdk/client-s3');
+const axios = require('axios');
 
 // Cloudflare Workers KV Configuration
 const CLOUDFLARE_ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID;
@@ -34,8 +24,7 @@ const kvClient = {
                     },
                 }
             );
-            console.log(`KV get response for key ${key}:`, response.data); // Added log
-            return response.data; // axios already parses JSON if Content-Type is application/json
+            return response.data;
         } catch (error) {
             console.error(`Error getting key ${key} from KV:`, error.response ? error.response.data : error.message);
             return null;
@@ -49,7 +38,7 @@ const kvClient = {
         try {
             await axios.put(
                 `https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/storage/kv/namespaces/${CLOUDFLARE_KV_NAMESPACE_ID}/values/${key}`,
-                JSON.stringify(value), // KV stores strings, so stringify JSON
+                JSON.stringify(value),
                 {
                     headers: {
                         'Authorization': `Bearer ${CLOUDFLARE_API_TOKEN}`,
@@ -57,7 +46,6 @@ const kvClient = {
                     },
                 }
             );
-            console.log(`KV put successful for key ${key}`); // Added log
         } catch (error) {
             console.error(`Error putting key ${key} to KV:`, error.response ? error.response.data : error.message);
         }
@@ -102,18 +90,14 @@ const kvClient = {
     }
 };
 
-// Middleware to parse JSON bodies
-app.use(express.json());
-app.use(express.static('public'));
-
-// R2 Configuration (PLACEHOLDERS - PLEASE PROVIDE YOUR ACTUAL KEYS)
-const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID || '0e9e51c62389c19cac618ecb7fa011e6';
-const R2_SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY || 'cbdef8abec24610c17efc25a17f22398e8ccdc018e291e9a9028d017a19b8c67';
-const R2_BUCKET_NAME = process.env.R2_BUCKET_NAME || 'anondrop-files'; // Confirmed from your API key
-const R2_ENDPOINT_URL = process.env.R2_ENDPOINT_URL || 'https://bee1cdac1697fdfaab090aa40a1bfae2.r2.cloudflarestorage.com'; // Confirmed from your API key
+// R2 Configuration
+const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID;
+const R2_SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY;
+const R2_BUCKET_NAME = process.env.R2_BUCKET_NAME;
+const R2_ENDPOINT_URL = process.env.R2_ENDPOINT_URL;
 
 const s3Client = new S3Client({
-    region: 'auto', // Cloudflare R2 uses 'auto' for region
+    region: 'auto',
     endpoint: R2_ENDPOINT_URL,
     credentials: {
         accessKeyId: R2_ACCESS_KEY_ID,
@@ -121,17 +105,69 @@ const s3Client = new S3Client({
     },
 });
 
+exports.handler = async (event, context) => {
+    if (event.httpMethod !== 'POST') {
+        return {
+            statusCode: 405,
+            body: JSON.stringify({ error: 'Method Not Allowed' }),
+            headers: { 'Allow': 'POST' }
+        };
+    }
 
+    console.log('Starting file cleanup process...');
+    try {
+        const allKeys = await kvClient.list();
+        let cleanedUpCount = 0;
 
+        for (const fileId of allKeys) {
+            const fileMetadata = await kvClient.get(fileId);
 
+            if (fileMetadata && fileMetadata.r2Key) {
+                const uploadDate = new Date(fileMetadata.uploadDate);
+                const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000); // 1 hour in milliseconds
 
-// Serve the download.html for any /download/:fileId route
-app.get('/download/:fileId', (req, res) => {
-    res.sendFile(__dirname + '/public/download.html');
-});
+                // Check for auto-destruction conditions
+                const shouldDelete = (
+                    fileMetadata.downloadCount >= 1 || // Deleted after 1 download
+                    uploadDate < oneHourAgo             // Deleted after 1 hour
+                );
 
+                if (shouldDelete) {
+                    console.log(`Deleting file: ${fileMetadata.fileName} (ID: ${fileId})`);
+                    // Delete from R2
+                    const deleteCommand = new DeleteObjectCommand({
+                        Bucket: R2_BUCKET_NAME,
+                        Key: fileMetadata.r2Key,
+                    });
+                    await s3Client.send(deleteCommand);
 
-
-app.listen(port, () => {
-    console.log(`AnonDrop R2 backend listening at http://localhost:${port}`);
-});
+                    // Delete from KV
+                    await kvClient.delete(fileId);
+                    cleanedUpCount++;
+                }
+            } else {
+                // If metadata is missing or malformed, consider deleting the key from KV
+                console.warn(`Malformed or missing metadata for key: ${fileId}. Deleting from KV.`);
+                await kvClient.delete(fileId);
+                cleanedUpCount++;
+            }
+        }
+        console.log(`File cleanup process completed. Cleaned up ${cleanedUpCount} files.`);
+        return {
+            statusCode: 200,
+            body: JSON.stringify({ message: `Cleanup successful. ${cleanedUpCount} files removed.` }),
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        };
+    } catch (error) {
+        console.error('Error during file cleanup:', error);
+        return {
+            statusCode: 500,
+            body: JSON.stringify({ error: 'Failed to perform file cleanup' }),
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        };
+    }
+};

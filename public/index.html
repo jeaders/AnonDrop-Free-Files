@@ -58,7 +58,7 @@
 
             try {
                 // 1. Get presigned URL from backend
-                const response = await fetch('/presigned-upload-url', {
+                const response = await fetch('/.netlify/functions/presigned-upload-url', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',

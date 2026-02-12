@@ -29,7 +29,7 @@
             errorMessageElement.textContent = 'Invalid download link.';
             errorMessageElement.style.display = 'block';
         } else {
-            fetch(`/api/download-info/${fileId}`)
+            fetch(`/.netlify/functions/download-info/${fileId}`)
                 .then(response => {
                     if (!response.ok) {
                         return response.json().then(err => { throw new Error(err.error || 'Failed to get download link'); });
