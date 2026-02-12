@@ -1,1 +1,1 @@
-feat: Configure project as ES Module
+fix: convert all functions and index.js to ESM to resolve ERR_REQUIRE_ESM on Netlify

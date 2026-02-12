@@ -7,7 +7,7 @@ console.log('CLOUDFLARE_KV_NAMESPACE_ID:', process.env.CLOUDFLARE_KV_NAMESPACE_I
 import express from 'express';
 import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'crypto';
 import axios from 'axios'; // Import axios
 
 const app = express();

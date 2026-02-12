@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'crypto';
 import axios from 'axios';
 
 // Cloudflare Workers KV Configuration
@@ -135,7 +135,7 @@ export const handler = async (event, context) => {
         };
     }
 
-    const fileId = uuidv4();
+    const fileId = randomUUID();
     const key = `uploads/${fileId}/${fileName}`;
 
     const command = new PutObjectCommand({
